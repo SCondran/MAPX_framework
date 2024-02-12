@@ -19,10 +19,10 @@ def aggregator(df_row, metadata_row, model_lookup_dict, bm_performance_weighting
 
 
     ### Run Aggreagtor ### 
-    dapa_explainer_dict = dapa_function(metadata_row, df_row, model_lookup_dict, base_models1)
-    bmacc_explainer_dict = bmAcc_function(metadata_row, df_row, base_models1, bm_performance_weightings[dataset])
+    dapa_explainer_dict = weighting_average_function(metadata_row, df_row,model_lookup_dict, base_models1, bm_performance_weightings[dataset], 'dapa')
+    bmacc_explainer_dict = weighting_average_function(metadata_row, df_row,model_lookup_dict, base_models1, bm_performance_weightings[dataset], 'bmacc')
+    average_explainer_dict = weighting_average_function(metadata_row, df_row,model_lookup_dict, base_models1, bm_performance_weightings[dataset], 'av')
     max_value = max_function(df_row, base_models1)
-    average_value = av_function(df_row, base_models1)
     
 
     ### Probability dictionary ###
@@ -31,8 +31,8 @@ def aggregator(df_row, metadata_row, model_lookup_dict, bm_performance_weighting
     probability_dict['actual'] = metadata_row['actual']
     probability_dict['DAPA'] = dapa_explainer_dict["probability"]
     probability_dict['BMAcc'] = bmacc_explainer_dict["probability"]
+    probability_dict['Av'] = average_explainer_dict["probability"]
     probability_dict['Max'] = max_value
-    probability_dict['Av'] = average_value
 
 
     ### Combine the base models and the aggregation probabilities ###
@@ -42,51 +42,78 @@ def aggregator(df_row, metadata_row, model_lookup_dict, bm_performance_weighting
 
 
     ### Explainer dictionary ###
-    explainer_dict = {'DAPA': dapa_explainer_dict, 'BMAcc': bmacc_explainer_dict}
+    explainer_dict = {'DAPA': dapa_explainer_dict, 'BMAcc': bmacc_explainer_dict, 'Av': average_explainer_dict}
 
     return probability_dict, explainer_dict
 
 
 
-def bmAcc_function(metadata_row, df_row, base_models, dataset_weights):
+def weighting_average_function(metadata_row, df_row, model_lookup_dict, base_models, dataset_weights, weighting_type):
     '''
     Aggregator - bmAcc of all base models
     weight probabilities of training model performance 
     '''
-    prob_dict_temp = get_model_probs_dict(df_row, base_models)
+    dataset = df_row['dataset']  
+    doc_id = df_row['doc_id']
+    actual = df_row['actual']
+    publisher = metadata_row['publisher']
+
+    if weighting_type == 'bmacc':
+        prob_dict_temp = get_model_probs_dict(df_row, base_models)
+    elif weighting_type == 'dapa':
+        dapa_weight_dict = dapa_weight_function(metadata_row, df_row, model_lookup_dict, base_models)
+    else:
+        prob_dict_temp = get_model_probs_dict(df_row, base_models)
+
     explainer_dict = {}
     prob_list_temp = []
     weight_list_temp = []
-    for model in prob_dict_temp.keys():
-        bmprob = prob_dict_temp[model]
-        bmweight = dataset_weights[model]
-        
+
+    
+    for base_model in base_models:
+
+        bmprob = df_row[base_model]
+
         explainer_dict_temp = {}
+        explainer_dict_temp['network_type'] = model_lookup_dict[base_model]['network']
+        explainer_dict_temp['information_type'] = model_lookup_dict[base_model]['information']
+
+        weights_temp = []
+        reliability_factors_dict = {}
+        for factor in model_lookup_dict[base_model]['reliability_factors']:
+            if weighting_type == 'dapa':
+                weight_temp = dapa_weight_dict[factor + '_weight']
+
+            else:
+                weight_temp = 1                                                                             # Models have equal contribution
+            reliability_factors_dict[factor] = weight_temp
+            weights_temp.append(weight_temp)
+        
+        reliabilty_score = np.average(weights_temp)                                                         # Average all the weights form each reliability factor
+        
+        if weighting_type == 'bmacc':                                                                       # Model weight is based on training model performance
+            reliabilty_score = prob_dict_temp[base_model]
+
+        
         explainer_dict_temp['bm_probability'] = round(bmprob,2)
-        explainer_dict_temp['model_weighting'] = round(bmweight,2)
-        explainer_dict_temp['weighted_probability'] = round(bmweight*bmprob,2)
-        explainer_dict[model] = explainer_dict_temp
+        explainer_dict_temp['model_weighting'] = round(reliabilty_score,2)
+        explainer_dict_temp['weighted_probability'] = round(reliabilty_score*bmprob,2)
+        explainer_dict_temp['reliability_factors'] = reliability_factors_dict
+        explainer_dict[base_model] = explainer_dict_temp
 
         prob_list_temp.append(bmprob)
-        weight_list_temp.append(bmweight)
-
+        weight_list_temp.append(reliabilty_score)
+    
     explainer_dict_full = {}
-    explainer_dict_full["metadata"] = {'doc_id': df_row['doc_id'], 'actual': metadata_row['actual']}
-    explainer_dict_full["probability"] = round(np.average(prob_list_temp, weights=weight_list_temp), 2)                       # Weighted average score
+    explainer_dict_full["metadata"] = {'doc_id': doc_id, 'actual': actual, 'publisher': publisher}
+    explainer_dict_full["probability"] = round(np.average(prob_list_temp, weights=weight_list_temp),2)                       # Weighted average score
     explainer_dict_full["explainer_dict"] = explainer_dict
 
+    ## if DAPA then add include weight details ##
+    if weighting_type == 'dapa':
+        explainer_dict_full["weight_details"] = dapa_weight_dict
+
     return explainer_dict_full
-
-
-
-def av_function(df_row, base_models):
-    '''
-    Aggregator - average of all base models
-    '''
-    prob_list_temp = get_model_probs_list(df_row, base_models)
-    aggregation_av = round(np.average(prob_list_temp),2)
-    
-    return aggregation_av
 
 
 
@@ -106,7 +133,7 @@ def max_function(df_row, base_models):
 
 
 
-def dapa_function(metadata_row, df_row, model_lookup_dict, base_models):
+def dapa_weight_function(metadata_row, df_row, model_lookup_dict, base_models):
     '''
     Aggregator - Dynamic adaptive probability aggregation (DAPA) 
     weight probabilities based on reliability factors
@@ -114,8 +141,9 @@ def dapa_function(metadata_row, df_row, model_lookup_dict, base_models):
     ### Get raw values of the reliability factors ###
     dataset = df_row['dataset']  
     doc_id = df_row['doc_id']
-    actual = metadata_row['actual']
+    actual = df_row['actual']
     publisher = metadata_row['publisher']
+
     word_count = int(metadata_row['word_count'])
     publisher_type = metadata_row['publisher_type']
     document_count = int(metadata_row['document_count'])
@@ -149,49 +177,8 @@ def dapa_function(metadata_row, df_row, model_lookup_dict, base_models):
                          'item_per_user_weight':item_per_user_weight, 'item_per_user': item_per_user,
                          'document_age_weight':document_age_weight, 'document_age': document_age                                
                                 }
+    return return_weightdict
 
-
-    ### Weight model probabilites using reliability factors ###
-    explainer_dict = {}
-    prob_list_temp = []
-    weight_list_temp = []
-    for base_model in df_row.keys():
-
-        if base_model not in base_models:
-            continue
-
-        bmprob = df_row[base_model]
-
-        explainer_dict_temp = {}
-        explainer_dict_temp['network_type'] = model_lookup_dict[base_model]['network']
-        explainer_dict_temp['information_type'] = model_lookup_dict[base_model]['information']
-
-        weights_temp = []
-        reliability_factors_dict = {}
-        for factor in model_lookup_dict[base_model]['reliability_factors']:
-            weight_temp = return_weightdict[factor + '_weight']
-            reliability_factors_dict[factor] = weight_temp
-            weights_temp.append(weight_temp)
-        
-        reliabilty_score = np.average(weights_temp)
-        
-        explainer_dict_temp['bm_probability'] = round(bmprob,2)
-        explainer_dict_temp['reliability_score'] = round(reliabilty_score,2)
-        explainer_dict_temp['weighted_probability'] = round(reliabilty_score*bmprob,2)
-        explainer_dict_temp['reliability_factors'] = reliability_factors_dict
-
-        explainer_dict[base_model] = explainer_dict_temp
-        
-        prob_list_temp.append(bmprob)
-        weight_list_temp.append(reliabilty_score)
-    
-    explainer_dict_full = {}
-    explainer_dict_full["metadata"] = {'doc_id': doc_id, 'actual': actual, 'publisher': publisher}
-    explainer_dict_full["probability"] = round(np.average(prob_list_temp, weights=weight_list_temp),2)                       # Weighted average score
-    explainer_dict_full["explainer_dict"] = explainer_dict
-    explainer_dict_full["weight_details"] = return_weightdict
-
-    return explainer_dict_full
 
     
 

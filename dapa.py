@@ -2,9 +2,9 @@ import os
 import pandas as pd
 import time
 import tqdm
+import json
 
 from lib import functions_aggregator, functions_HTX, tools
-
 
 
 def main():
@@ -50,37 +50,48 @@ def main():
     metadata_df = tools.df_load_csv(metadata_path)                                                                # read in demo meta dataset  - doc_id, publisher, unique_
 
 
-    ### Aggregator ###
+    ### Run Aggregator ###
     df_list = []
     explainer_list = []
-
-    ### Loop over ids ###
     for _, row in tqdm.tqdm(inputdata_df.iterrows()):        
         row_metadata = metadata_df[metadata_df['doc_id'] == row['doc_id']]                                  # Filter the metadata to the specific doc_id, actual, publisher, word_count, document_count, publisher_type, item_count, item_per_user, document_age
         probability_dict, explainer_dict = functions_aggregator.aggregator(row.to_dict(), row_metadata.to_dict(orient='records')[0], model_lookup_dict, bm_performance_weightings)
-        
+        df_list.append(probability_dict)
 
-        ### Merge all probability dictionaries ###
-        if probability_dict is not None:
-            df_list.append(probability_dict)
-
-
-        ### Save all Explainability files ###
-        for key, value in explainer_dict.items():
-            doc_id = value['metadata']['doc_id']
-            explainer_path = os.path.join(explainer_dir, f'explainer-{doc_id}-{key}.json')
-            tools.save_json(explainer_path, value)
-            print(explainer_path)
-
-
-    ### Save Probability Dataframe ###
-    df1 = pd.DataFrame(df_list)
-    tools.df_to_csv(outputdata_path, df1)
+        ### Merge all explainer dictionaries ###
+        htx_output = functions_HTX.explainer_to_htx(explainer_dict)
+        explainer_list.append(htx_output)
 
     
-    ### Print output ###
-    print("\n### df1 ###")
-    print(df1)
+
+    ### Explainer Data ###
+    explainer_output_dict = {}
+    aggregator_methods = explainer_list[0].keys()
+
+    for method in aggregator_methods:                   # Create empty lists for each method
+        explainer_output_dict[method] = []
+
+    ## Loop over each explainer and add to the output List of dictionaries ##
+    for dict_dict in explainer_list:                    # Loop over documents
+        doc_id = dict_dict['DAPA']['doc_id']
+        for method in aggregator_methods:               # Loop over methods
+            explainer_output_dict[method].append(dict_dict[method])
+
+    ## Save each explainer output to a csv ##
+    for model, df_new in explainer_output_dict.items():
+        print(f"\n\n### Explainer - {model} ###")
+        df_exp = pd.DataFrame(df_new)
+        print(df_exp)
+        outputdata_path = os.path.join(output_dir, f'explainer_{model}.csv')
+        tools.df_to_csv(outputdata_path, df_exp)
+
+
+
+    ### Aggregator Data ###
+    df_agg = pd.DataFrame(df_list)
+    tools.df_to_csv(outputdata_path, df_agg)
+    print("\n### Aggregator Data ###")
+    print(df_agg)
     
 
 

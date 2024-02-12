@@ -1,0 +1,17 @@
+doc_id,actual,htx_model,htx_network,htx_information,htx_reliability
+politifact608,0,{'PC': 0.5},{'context': 0.7},{'publisher_history': 0.5},"{'publisher_type': {'publisher_type': 1, 'document_count': 1, 'document_age': 1}}"
+politifact968,0,{'PC': 0.52},{'context': 0.52},{'publisher_history': 0.52},"{'publisher_type': {'publisher_type': 1, 'item_count': 1, 'document_age': 1}}"
+politifact1014,0,{'PC': 0.41},{'context': 0.73},{'publisher_history': 0.41},"{'publisher_type': {'publisher_type': 1, 'document_age': 1}}"
+politifact1185,0,{'PC': 0.41},{'context': 0.7},{'publisher_history': 0.41},{'publisher_type': {'publisher_type': 1}}
+politifact5237,0,{'PC': 0.45},{'context': 0.73},{'publisher_history': 0.45},"{'publisher_type': {'publisher_type': 1, 'document_count': 1, 'document_age': 1}}"
+politifact6519,0,{'PC': 0.56},{'context': 0.78},{'publisher_history': 0.56},"{'publisher_type': {'publisher_type': 1, 'document_count': 1}}"
+politifact8470,0,{'PC': 0.39},{'context': 0.61},{'publisher_history': 0.39},"{'publisher_type': {'publisher_type': 1, 'item_count': 1, 'document_age': 1}}"
+politifact11115,0,{'PC': 0.43},{'context': 0.7},{'publisher_history': 0.43},"{'publisher_type': {'publisher_type': 1, 'document_count': 1, 'item_count': 1, 'document_age': 1}}"
+politifact12104,0,{'PC': 0.37},{'context': 0.66},{'publisher_history': 0.37},"{'publisher_type': {'publisher_type': 1, 'item_count': 1, 'document_age': 1}}"
+politifact15133,0,{'PC': 0.39},{'context': 0.61},{'publisher_history': 0.39},"{'publisher_type': {'publisher_type': 1, 'item_count': 1, 'document_age': 1}}"
+politifact14386,1,{'FF': 0.36},{'context': 0.69},{'word': 0.36},"{'publisher_type': {'publisher_type': 1, 'item_count': 1, 'document_age': 1}}"
+politifact14503,1,{'PC': 0.42},{'context': 0.75},{'publisher_history': 0.42},"{'publisher_type': {'publisher_type': 1, 'document_count': 1, 'document_age': 1}}"
+politifact14587,1,{'PC': 0.56},{'context': 0.56},{'publisher_history': 0.56},"{'publisher_type': {'publisher_type': 1, 'document_age': 1}}"
+politifact14694,1,{'PC': 0.41},{'context': 0.76},{'publisher_history': 0.41},{'publisher_type': {'publisher_type': 1}}
+politifact15191,1,{'FF': 0.36},{'context': 0.69},{'word': 0.36},"{'publisher_type': {'publisher_type': 1, 'item_count': 1, 'document_age': 1}}"
+politifact15402,1,{'PC': 0.6},{'context': 0.6},{'publisher_history': 0.6},"{'publisher_type': {'publisher_type': 1, 'document_age': 1}}"
